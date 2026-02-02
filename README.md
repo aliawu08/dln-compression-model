@@ -1,4 +1,4 @@
-# DLN Computational Framework
+# Compression Efficiency and Structural Learning as a Computational Model of DLN Cognitive Stages
 
 A computational instantiation of three DLN cognitive stages (Dot → Linear → Network) testing a **compression-efficiency** thesis: Network cognition is more efficient because it represents shared structure once, rather than redundantly across options.
 
