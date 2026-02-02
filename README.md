@@ -4,7 +4,7 @@ A computational instantiation of three DLN cognitive stages (Dot → Linear → 
 
 This repository accompanies the paper *"Compression Efficiency and Structural Learning as a Computational Model of DLN Cognitive Stages"* (Wu, 2026).
 
-**Paper:** [arXiv:xxxx.xxxxx](https://arxiv.org/abs/xxxx.xxxxx) *(link to be updated upon submission)*
+**Preprint:** [ResearchGate](https://www.researchgate.net/publication/389382329) | DOI: [10.13140/RG.2.2.11937.26728](https://doi.org/10.13140/RG.2.2.11937.26728)
 
 **Contact:** Alia Wu — wut08@nyu.edu
 **ORCID:** [0009-0005-4424-102X](https://orcid.org/0009-0005-4424-102X)
@@ -132,7 +132,7 @@ Pre-computed outputs are committed in `outputs/paper/` for reproducibility verif
             as a Computational Model of DLN Cognitive Stages},
   author = {Wu, Alia},
   year   = {2026},
-  note   = {arXiv preprint (forthcoming)}
+  doi    = {10.13140/RG.2.2.11937.26728}
 }
 ```
 
