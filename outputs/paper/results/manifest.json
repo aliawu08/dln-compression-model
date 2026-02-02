@@ -32,8 +32,8 @@
     "switch": 25.0
   },
   "outputs": {
-    "episode_metrics": "outputs/paper-v2/results/episode_metrics.csv",
-    "agg_summary": "outputs/paper-v2/artifacts/tables/agg_summary.csv",
-    "figures_dir": "outputs/paper-v2/artifacts/figures"
+    "episode_metrics": "outputs/paper/results/episode_metrics.csv",
+    "agg_summary": "outputs/paper/artifacts/tables/agg_summary.csv",
+    "figures_dir": "outputs/paper/artifacts/figures"
   }
 }
