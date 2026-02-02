@@ -1,5 +1,5 @@
 [project]
-name = "dln-computational-framework"
+name = "dln-compression-model"
 version = "0.1.0"
 description = "DLN computational framework simulations."
 requires-python = ">=3.8"
