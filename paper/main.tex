@@ -284,9 +284,9 @@ with small idiosyncratic noise. Utility is the sum of outcomes minus incremental
 \[
 \text{score}(i) = \widehat{\mu}_i - \lambda b_i^2.
 \]
-This scoring function treats hedging as separable across options and does not track cumulative exposure.
+This scoring function treats hedging as separable across options and does not track cumulative exposure.\footnote{A hybrid ``Linear+$E_t$'' agent could track cumulative exposure while maintaining independent option beliefs. We exclude this design because tracking $E_t$ requires representing how past choices affect future evaluations---a cross-option temporal dependency inconsistent with the branch-by-branch independence that characterizes Linear-stage cognition. Isolating the factor-compression and exposure-tracking contributions via such an ablation is a direction for future work.}
 
-\textbf{Network-Full.} The Network-Full agent maintains factor-level outcome estimates $\widehat{m}_f$ and factor-level exposure estimates $\widehat{b}_f$, tracks $E_t$, and uses the true marginal penalty form. It also runs the predictive check and can expand to tabular outcome estimates when the factor hypothesis fails.
+\textbf{Network-Full.} The Network-Full agent maintains factor-level outcome estimates $\widehat{m}_f$ and factor-level exposure estimates $\widehat{b}_f$, tracks $E_t$, and uses the true marginal penalty form. Within a chosen factor, Network searches over at most $L{=}5$ options to avoid hiding $O(K)$ scans in factor selection. It also runs the predictive check and can expand to tabular outcome estimates when the factor hypothesis fails.
 
 \textbf{Ablations.} Network-NoTest disables the predictive check; Network-NoUpdate runs the check but disallows switching.
 
@@ -464,6 +464,10 @@ We use an algorithmic proxy (memory and compute scaling).
 \paragraph{Local search within factor.}
 Network uses a bounded local search of size $L$ within a chosen factor to avoid hiding $O(K)$ scans.
 \emph{Future direction:} vary $L$ (ablation) to quantify the tradeoff between factor-level compression and within-factor deviation exploitation.
+
+\paragraph{Decomposing compression and exposure tracking.}
+The present design confounds two mechanisms: factor-level compression (representing shared structure once) and cumulative exposure tracking (using $E_t$ to compute marginal impact). A Linear agent augmented with $E_t$-tracking but no factor structure would isolate these contributions.
+\emph{Future direction:} implement a ``Linear+$E_t$'' baseline and measure how much of the stakes-condition advantage (Claim C2) arises from compression versus exposure tracking.
 
 
 \section{Reproducibility}\label{sec:repro}
