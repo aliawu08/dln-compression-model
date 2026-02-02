@@ -25,7 +25,13 @@ This repository accompanies the paper *"Compression Efficiency and Structural Le
 
 ```
 ├── src/
-│   └── dln_core_variable_cycle.py   # Main simulation (standalone)
+│   ├── dln_core_variable_cycle.py   # Main simulation (paper results)
+│   └── dln_cycle/                   # Supporting module library
+│       ├── agents.py                # Reusable agent implementations
+│       ├── cycle.py                 # Hypothesis test-update cycle logic
+│       ├── envs.py                  # Bandit environment definitions
+│       ├── metrics.py               # Entropy and utility computations
+│       └── run_experiments.py       # Ablation suite runner
 ├── paper/
 │   ├── main.tex                     # LaTeX source
 │   ├── claims.yaml                  # Formal claims verification spec
@@ -75,6 +81,30 @@ python src/dln_core_variable_cycle.py --preset paper --out outputs/paper
 
 # Run tests
 pytest
+```
+
+---
+
+## Experiment Pipelines
+
+This repository provides two experiment runners for different use cases:
+
+| Script | Purpose | Presets |
+|--------|---------|---------|
+| `src/dln_core_variable_cycle.py` | **Paper results** — generates publication figures and claim verification data | `smoke`, `paper`, `boundary-kf`, `stakes-sweep` |
+| `src/dln_cycle/run_experiments.py` | **Ablation suite** — modular experiments with reproducibility fingerprints | `smoke`, `ablate-small`, `paper` |
+
+**When to use each:**
+
+- Use `dln_core_variable_cycle.py` to reproduce the paper's main results and figures. This is the primary entry point for verifying claims.
+- Use `dln_cycle/run_experiments.py` for ablation studies, scaling analysis, and experiments requiring the modular `dln_cycle` components (e.g., `ShiftedStructuredBandit` for distribution shifts).
+
+```bash
+# Paper results (main simulation)
+python src/dln_core_variable_cycle.py --preset paper --out outputs/paper
+
+# Ablation suite (modular experiments)
+python src/dln_cycle/run_experiments.py --preset ablate-small --out outputs/ablate-small
 ```
 
 ---

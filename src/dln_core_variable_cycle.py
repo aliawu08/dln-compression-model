@@ -62,12 +62,24 @@ import json
 import math
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Literal
+from typing import Dict, List, Literal, Tuple
 
 import numpy as np
 import pandas as pd
 
 Structure = Literal["structured", "unstructured"]
+
+
+def spawn_rngs(seed: int) -> Tuple[np.random.Generator, np.random.Generator]:
+    """Create independent RNG streams for environment and episode execution.
+
+    This separates environment generation randomness from agent/episode randomness,
+    ensuring that agents can be compared independently on identical environments
+    without coupling their stochastic processes.
+    """
+    sequence = np.random.SeedSequence(seed)
+    env_ss, episode_ss = sequence.spawn(2)
+    return np.random.default_rng(env_ss), np.random.default_rng(episode_ss)
 
 
 # -------------------------
@@ -675,7 +687,9 @@ def run_suite(cfg: RunSpec, out_dir: str) -> pd.DataFrame:
     rows: List[Dict[str, object]] = []
 
     for seed in range(cfg.seeds):
-        rng = np.random.default_rng(seed)
+        # Separate RNG streams for environment generation and episode execution
+        # to avoid coupling between environment and agent randomness
+        env_rng, episode_rng = spawn_rngs(seed)
         for K in cfg.K_values:
             for stakes in cfg.stakes_values:
                 for structure in cfg.structures:
@@ -691,7 +705,7 @@ def run_suite(cfg: RunSpec, out_dir: str) -> pd.DataFrame:
                         structure=structure,
                         dual_purpose=cfg.dual_purpose,
                     )
-                    env = make_env(rng, spec)
+                    env = make_env(env_rng, spec)
 
                     agents: List[Agent] = [
                         DotRandom(cfg.cost_w),
@@ -702,7 +716,7 @@ def run_suite(cfg: RunSpec, out_dir: str) -> pd.DataFrame:
                     ]
 
                     for agent in agents:
-                        ep = run_episode(env, agent, rng)
+                        ep = run_episode(env, agent, episode_rng)
                         cau = float(ep["utility"]) - cfg.cog_lambda * float(ep["cognitive_cost"])
                         # Compute conditional dual rate (only when hedging matters: |E| >= 0.5)
                         dual_rate = float(ep["dual_picks"]) / float(cfg.T)
