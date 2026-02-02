@@ -24,7 +24,7 @@ Risk Efficacy \& Redline Rising\\
 \maketitle
 
 \begin{abstract}
-We propose a computational instantiation of three cognitive stages from the Dot--Linear--Network (DLN) framework, grounded in a compression-efficiency thesis. DLN stages are characterized as representational topologies at the level of an agent's belief-dependency structure: Dot as no persistent belief graph (reactive policies with negligible state), Linear as a null graph over option beliefs ($K$ independent option estimates with no information sharing), and Network as shared latent structure (a bipartite factor graph in which $F$ latent factors connect to $K$ options), augmented by a temporal exposure state and an explicit structural learning cycle (hypothesis $\rightarrow$ test $\rightarrow$ update/expand).
+Extending the computational cognitive modeling tradition in which formal frameworks provide foundations for behavioral validation (Marr, 1982; Anderson et al., 2004; Kemp \& Tenenbaum, 2008), we propose a computational instantiation of three cognitive stages from the Dot--Linear--Network (DLN) framework, grounded in a compression-efficiency thesis. DLN stages are characterized as representational topologies at the level of an agent's belief-dependency structure: Dot as no persistent belief graph (reactive policies with negligible state), Linear as a null graph over option beliefs ($K$ independent option estimates with no information sharing), and Network as shared latent structure (a bipartite factor graph in which $F$ latent factors connect to $K$ options), augmented by a temporal exposure state and an explicit structural learning cycle (hypothesis $\rightarrow$ test $\rightarrow$ update/expand).
 In this mapping, Linear cognition learns and evaluates $K$ options independently ($O(K)$ cognitive cost), while Network cognition represents shared structure once ($O(F)$ cognitive cost for $F$ shared factors) and incorporates an explicit structural learning cycle: structural hypothesis $\rightarrow$ predictive test $\rightarrow$ update/expansion when the hypothesis fails.
 We distinguish two compression targets: \emph{Option-factor structure} (shared structure in expected outcomes) and \emph{Stakes-factor structure} (shared structure in consequence-bearing exposures). Their intersection yields \emph{jointly efficient actions} that improve expected outcomes while simultaneously improving marginal stakes impact.
 In a bandit-like simulation with factor-structured options and factor-structured stakes ($100$ seeds, $K\in\{20,50,100,200\}$, $F{=}5$, $T{=}80$), Network policies dominate Linear policies in cost-adjusted utility once the option set is sufficiently large (for example, at $K{=}200$ with stakes off, Network-Full achieves cost-adjusted utility $80.53$ vs.\ Linear $64.46$).
@@ -591,6 +591,11 @@ J.~Kwisthout, T.~Wareham, and I.~van Rooij.
 J.~E. Laird.
 \newblock \emph{The Soar Cognitive Architecture}.
 \newblock MIT Press, 2012.
+
+\bibitem{Marr1982}
+D.~Marr.
+\newblock \emph{Vision: A Computational Investigation into the Human Representation and Processing of Visual Information}.
+\newblock W.\,H. Freeman, 1982.
 
 \bibitem{LakeEtAl2017}
 B.~M. Lake, T.~D. Ullman, J.~B. Tenenbaum, and S.~J. Gershman.
