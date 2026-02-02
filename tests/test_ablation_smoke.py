@@ -1,4 +1,4 @@
-from src.dln_cycle.run_experiments import run_smoke
+from dln_cycle.run_experiments import run_smoke
 
 
 def test_ablation_directions() -> None:

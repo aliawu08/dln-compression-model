@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from src.dln_cycle.metrics import compute_entropy
+from dln_cycle.metrics import compute_entropy
 
 
 def test_entropy_uniform_is_one() -> None:

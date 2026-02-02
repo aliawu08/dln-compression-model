@@ -1,4 +1,4 @@
-from src.dln_cycle.run_experiments import compute_fingerprint, run_smoke, spawn_rngs
+from dln_cycle.run_experiments import compute_fingerprint, run_smoke, spawn_rngs
 
 
 def test_rng_streams_are_independent() -> None:
