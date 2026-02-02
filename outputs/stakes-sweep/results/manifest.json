@@ -1,0 +1,39 @@
+{
+  "preset": "stakes-sweep",
+  "seeds": 50,
+  "K_values": [
+    50,
+    200
+  ],
+  "F": 5,
+  "T": 80,
+  "stakes_values": [
+    0.0,
+    0.25,
+    0.5,
+    0.75,
+    1.0
+  ],
+  "structures": [
+    "structured"
+  ],
+  "dual_purpose": true,
+  "eps0": 0.4,
+  "window": 20,
+  "margin": 0.1,
+  "reward_sigma": 0.25,
+  "idio_mu_sigma": 0.05,
+  "idio_b_sigma": 0.05,
+  "factor_corr": 0.35,
+  "cog_lambda": 1.0,
+  "cost_weights": {
+    "mem": 0.01,
+    "compute": 0.001,
+    "switch": 25.0
+  },
+  "outputs": {
+    "episode_metrics": "outputs/stakes-sweep/results/episode_metrics.csv",
+    "agg_summary": "outputs/stakes-sweep/artifacts/tables/agg_summary.csv",
+    "figures_dir": "outputs/stakes-sweep/artifacts/figures"
+  }
+}
