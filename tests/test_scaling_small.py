@@ -1,4 +1,4 @@
-from src.dln_cycle.run_experiments import run_scaling_suite, run_smoke
+from dln_cycle.run_experiments import run_scaling_suite, run_smoke
 
 
 def test_smoke_outputs_expected_labels() -> None:
