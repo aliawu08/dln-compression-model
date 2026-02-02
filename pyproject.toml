@@ -5,6 +5,9 @@ description = "DLN computational framework simulations."
 requires-python = ">=3.8"
 dependencies = [
   "numpy",
+  "pandas",
+  "matplotlib",
+  "pyyaml",
 ]
 
 [tool.pytest.ini_options]
