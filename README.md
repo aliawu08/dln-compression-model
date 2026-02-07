@@ -140,4 +140,9 @@ Pre-computed outputs are committed in `outputs/paper/` for reproducibility verif
 
 ## License
 
-MIT License. See [LICENSE](LICENSE) for details.
+This project is dual-licensed:
+
+- **Code** (source code, scripts, tests): [MIT License](LICENSE)
+- **Documentation, figures, and paper content**: [Creative Commons Attribution 4.0 International (CC BY 4.0)](LICENSE-CC-BY-4.0)
+
+You may choose the license that best suits your use case. See [LICENSE](LICENSE) and [LICENSE-CC-BY-4.0](LICENSE-CC-BY-4.0) for details.
