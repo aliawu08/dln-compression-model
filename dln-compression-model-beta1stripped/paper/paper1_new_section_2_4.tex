@@ -1,0 +1,143 @@
+% ============================================================
+% Section 2.4 + Proposition 1 (β₁ stripped)
+% Drop-in replacement content for main.tex.
+% ============================================================
+
+\subsection{Model space and revision graph}\label{sec:model_space}
+
+The preceding sections characterize DLN stages by the within-episode
+belief-dependency graph $G$ that an agent uses to represent outcomes, exposures,
+and option relations.  Our Network instantiation also implements an explicit
+structural learning cycle that can \emph{revise which belief graph is active}
+when a structural hypothesis fails.  To formalize this two-level distinction, we
+separate (i) inference and learning \emph{within} a belief graph (Level~1) from
+(ii) monitoring and revising the belief graph itself (Level~2).
+
+\paragraph{Model space.}
+Let $\mathcal{M}$ be a set of candidate belief-dependency structures.  In the
+present instantiation, the core model space contains two elements:
+a compressed factor graph $G_F$ (shared latent factors connecting options) and
+an expanded tabular graph $G_{\mathrm{tab}}$ (independent option beliefs).
+Formally, $\mathcal{M}=\{G_F,\,G_{\mathrm{tab}}\}$.
+
+\paragraph{Revision graph.}
+Define the \emph{revision graph} as a directed graph over model space,
+$\mathcal{R}=(\mathcal{M},\mathcal{T})$, where $\mathcal{T}\subseteq
+\mathcal{M}\times\mathcal{M}$ is the set of revision transitions available to an
+agent.  In our simulation, the key transitions are:
+(i)~\emph{expansion} (switching from $G_F$ to $G_{\mathrm{tab}}$ when the factor
+hypothesis fails) and (ii)~\emph{contraction} (switching from $G_{\mathrm{tab}}$
+back to $G_F$ when predictive evidence supports compression again).
+
+\paragraph{Completing the cycle: contraction.}
+Expansion alone yields an irreversible path $G_F \rightarrow
+G_{\mathrm{tab}}$.  Adding a contraction transition
+$(G_{\mathrm{tab}},G_F)\in\mathcal{T}$ completes a revision cycle.  This return
+transition matters even when $|\mathcal{M}|=2$: it is the mechanism that
+enables an agent to recover compressed $O(F)$ operation after a period of
+operating in an expanded $O(K)$ representation.
+
+\paragraph{Revision capacity by DLN stage.}
+The revision graph characterizes each stage's meta-cognitive capacity in
+graph-combinatorial terms:
+%
+\begin{itemize}[leftmargin=*]
+\item \textbf{Dot.}  No model space ($|\mathcal{M}|=0$); $\mathcal{R}$
+  is empty.  No revision capacity.
+\item \textbf{Linear.}  $\mathcal{M} = \{G_{\mathrm{tab}}\}$; a single
+  vertex with no edges.  The agent occupies a fixed point in model space.
+\item \textbf{Network (expand-only).}  $\mathcal{M} =
+  \{G_F, G_{\mathrm{tab}}\}$; one directed edge
+  $G_F \to G_{\mathrm{tab}}$.  The agent can detect model failure and
+  expand, but cannot return to a compressed representation.
+\item \textbf{Network (full cycle).}  Two directed edges (expand and
+  contract).  $\mathcal{R}$ contains a cycle: the agent can depart from a
+  model, operate under an alternative, and return.  This is the
+  graph-theoretic signature of full revision capacity.
+\end{itemize}
+%
+The functional consequence of the return transition is stated in
+Proposition~\ref{prop:crossover}(iii): an agent that can return to
+$G_F$ recovers $O(F)$ cost scaling in bounded time; an agent that
+cannot is permanently locked at $O(K)$.
+
+\paragraph{Two levels of computation.}
+Level~1 computation concerns inference and parameter learning within a chosen
+belief graph $G\in\mathcal{M}$ (e.g., updating factor means or option means).
+Level~2 computation concerns monitoring model adequacy and executing transitions
+in $\mathcal{R}$.  Proposition~\ref{prop:crossover}(iii) establishes that an
+agent whose revision graph includes a return transition recovers $\Theta(F)$
+scaling in bounded time once factor structure is present, while an agent without
+a return transition remains at $\Theta(K)$ permanently.
+
+\paragraph{Relationship to the tractable-cognition literature.}
+Work on probabilistic graphical models and treewidth analyzes the complexity of
+inference \emph{within a fixed model structure} \cite{Pearl1988,vanRooij2008,Kwisthout2010}.
+Our claims are different in kind: we focus on when representing shared
+structure reduces the number of distinct quantities an agent must learn from $K$
+to $F$, and on what revision transitions are required to recover that advantage
+after model failure.
+
+\begin{proposition}[Cost separation and recovery bound]\label{prop:crossover}
+Let an agent face a $K$-option decision environment with $F$-factor structure
+($F \leq K$).  Let $c_{\mathrm{param}}$ be the per-element parameter learning
+cost and $c_{\mathrm{meta}}$ be the Level~2 model-revision overhead (navigation
+of the revision graph $\mathcal{R}$, Section~\ref{sec:model_space}).  Then:
+
+\begin{enumerate}[label=(\roman*)]
+\item \textbf{Crossover.}
+For $K < K^* = F + c_{\mathrm{meta}}/c_{\mathrm{param}}$, Linear achieves lower
+total cognitive cost than Network (Network cannot do better than operating in a
+correct compressed model and still paying its Level~2 overhead).
+For $K > K^*$, Network under a correct factor hypothesis achieves lower total
+cost by replacing $O(K)$ per-episode parameter maintenance with $O(F)$, up to the
+fixed overhead $c_{\mathrm{meta}}$.
+
+\item \textbf{Catastrophic failure under cross-terms.}
+When the environment contains stakes-factor structure with covariance coupling,
+Linear's utility degrades without bound in cumulative exposure $E_t$ because it
+cannot represent the marginal penalty term $2E_t b_i$.  Network's utility
+remains bounded because it tracks $E_t$ and computes marginal impact.
+
+\item \textbf{Recovery bound.}
+When the factor hypothesis is incorrect and the agent expands to
+$G_{\mathrm{tab}}$, an agent whose revision graph $\mathcal{R}$ includes a
+return transition $(G_{\mathrm{tab}}, G_F) \in \mathcal{T}$ recovers $O(F)$ cost
+scaling within $n_{\mathrm{contract}} + w + n_{\mathrm{converge}}$ steps after
+factor structure becomes present, where $n_{\mathrm{converge}}$ is the number of
+observations required for within-factor variance to fall below the contraction
+threshold.  An agent without a return transition (expand-only Network or Linear)
+remains at $O(K)$ cost indefinitely.
+\end{enumerate}
+
+Parts (i) and (ii) are tested by the existing simulation results.
+Part (iii) is tested by the contraction ablation
+(Section~\ref{sec:contraction}).
+\end{proposition}
+
+\paragraph{Proof sketch for (i).}
+In the absence of structural sharing, Linear must maintain $K$ parameters, so
+its per-episode cost is proportional to $c_{\mathrm{param}}K$.  A Network agent
+that is operating in a correct compressed model maintains only $F$ parameters,
+but still pays a fixed Level~2 overhead $c_{\mathrm{meta}}$ for monitoring and
+revision.  Comparing $c_{\mathrm{param}}K$ against $c_{\mathrm{param}}F +
+c_{\mathrm{meta}}$ yields the crossover condition $K^* = F +
+c_{\mathrm{meta}}/c_{\mathrm{param}}$.
+
+\paragraph{Proof sketch for (ii).}
+Under stakes, the true marginal impact of choosing option $i$ contains a
+cross-term proportional to $2E_t b_i$, where $E_t$ is cumulative exposure.  A
+Linear agent that treats options independently can include a per-option penalty
+(e.g., $\lambda b_i^2$) but cannot represent the coupling to $E_t$, so it cannot
+stabilize exposure as $|E_t|$ grows.  A Network agent that tracks $E_t$ and
+computes marginal impact can keep exposure bounded, preventing unbounded penalty
+growth.
+
+\paragraph{Proof sketch for (iii).}
+After expanding to $G_{\mathrm{tab}}$, an agent with a return transition can
+periodically test whether a compressed factor model predicts well again (for
+example via a length-$w$ evaluation window after a holdout period
+$n_{\mathrm{contract}}$).  Once factor structure is present and sufficient data
+are accumulated ($n_{\mathrm{converge}}$ observations), the agent contracts back
+to $G_F$ and returns to $O(F)$ scaling.  Without a return transition, the agent
+remains in the expanded model and continues to incur $O(K)$ cost.

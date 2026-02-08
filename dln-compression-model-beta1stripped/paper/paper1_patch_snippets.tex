@@ -1,0 +1,93 @@
+% ============================================================
+% Paper 1 patch snippets (β₁ stripped; graph language)
+% These are drop-in replacements / insertions for main.tex.
+% ============================================================
+
+% ----------------------------
+% Abstract insertion (replace the existing "cycle" formalization paragraph)
+% ----------------------------
+% Suggested replacement paragraph:
+%
+% We formalize this cycle as navigation in a model space $\mathcal{M}$ whose
+% elements are candidate belief-dependency structures.  DLN stages are then
+% characterized by two formal objects: the belief-dependency graph $G$
+% (determining Level~1 inference cost) and a revision graph
+% $\mathcal{R}=(\mathcal{M},\mathcal{T})$ over $\mathcal{M}$ (determining Level~2
+% meta-cognitive capacity).  Linear cognition is a fixed point in $\mathcal{M}$
+% with $\mathcal{T}=\emptyset$; Network cognition revises by traversing edges of
+% $\mathcal{R}$, including a return transition that enables bounded recovery
+% after model failure.
+
+% ----------------------------
+% Section 2.1 bridge sentence (replace the sentence that mentions "structural feature")
+% ----------------------------
+% Suggested replacement:
+%
+% Section~\ref{sec:model_space} formalizes this distinction by defining a model
+% space $\mathcal{M}$ whose elements are candidate belief structures and a
+% revision graph $\mathcal{R}$ whose edges are transitions between them; the
+% cycle that defines Network cognition is a structural feature of $\mathcal{R}$,
+% not of any individual belief graph $G\in\mathcal{M}$.
+
+% ----------------------------
+% Figure 1, Panel (b) label + caption edits
+% ----------------------------
+% In the Panel (b) TikZ, replace any line that annotates $a graph-structure annotation$
+% with:
+%
+% \node[draw=none, below=0.7cm of gF3, anchor=west] {$\mathcal{R}$ contains a cycle};
+%
+% Caption replacement for Panel (b):
+%
+% (b) Revision graphs over model space (Level~2). Dot: empty model space.
+% Linear: fixed point in model space (no revision edges). Network (expand-only):
+% directed path $G_F \rightarrow G_{\mathrm{tab}}$. Network (full cycle): two
+% directed transitions (expand and contract) forming a cycle in $\mathcal{R}$,
+% enabling bounded recovery (Proposition~\ref{prop:crossover}(iii)).
+
+% ----------------------------
+% Discussion, Section 7.1 (replace deployment-layer paragraph + add meta-cognition paragraph)
+% ----------------------------
+% Replacement paragraph:
+%
+% The revision graph $\mathcal{R}$ introduced in Section~\ref{sec:model_space}
+% provides a formal model of this deployment layer: the structural learning
+% cycle implements Level~2 computation (navigation of $\mathcal{R}$), and the
+% crossover condition $K^* = F + c_{\mathrm{meta}}/c_{\mathrm{param}}$ determines
+% when investing in Level~2 is cost-effective.  This connects to metacognitive
+% monitoring \cite{Flavell1979} by formalizing what is monitored (model adequacy,
+% via predictive tests) and what actions are available in response (transitions
+% in $\mathcal{R}$).
+%
+% New paragraph:
+%
+% \paragraph{Meta-cognition as a property of model space.}
+% DLN stages differ not only in the graph-structure of the belief graph $G$ (Level~1)
+% but in whether the agent can navigate a non-trivial model space (Level~2).
+% Linear cognition is a fixed point in $\mathcal{M}$.  Network cognition
+% traverses $\mathcal{M}$ via revision transitions, including a return transition
+% whose functional consequence is bounded cost recovery after model failure
+% (Proposition~\ref{prop:crossover}(iii)).  This provides a foundation for
+% instantiating DLN in other domains: any system where an observer, agent, or
+% learner can be characterized by (i)~a current representational structure and
+% (ii)~a set of available transitions between structures can be classified by
+% the structure of its revision graph.
+
+% ----------------------------
+% Conclusion replacement (replace the existing concluding paragraph that invokes graph-structure)
+% ----------------------------
+% Suggested replacement:
+%
+% Two formal objects carry the DLN distinction: the belief-dependency graph $G$,
+% whose structure determines Level~1 inference cost, and the revision graph
+% $\mathcal{R}$ over model space, whose structure determines Level~2
+% meta-cognitive capacity.  Linear cognition is a fixed point in model space;
+% Network cognition navigates $\mathcal{R}$ via hypothesis, test, and revision
+% transitions.  Proposition~\ref{prop:crossover} derives the crossover
+% $K^* = F + c_{\mathrm{meta}}/c_{\mathrm{param}}$ from the interaction between
+% Level~1 compression and Level~2 overhead, and shows that including a return
+% transition in $\mathcal{R}$ provides bounded recovery after model failure.
+% This two-object characterization provides a foundation for instantiating DLN
+% in domains beyond decision-making, including settings where representational
+% constraints determine what information an agent can extract from its
+% environment.
