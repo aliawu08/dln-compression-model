@@ -63,7 +63,7 @@ import argparse
 import dataclasses
 import json
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Literal, Tuple
 
@@ -185,6 +185,71 @@ class CogCostCounter:
 
 
 # -------------------------
+# Contraction (return transition)
+# -------------------------
+
+@dataclass(frozen=True)
+class ContractionConfig:
+    """Configuration for the contraction (return) transition.
+
+    Parameters
+    ----------
+    enabled:
+        Whether contraction logic is active at all.
+    holdout_steps (n_contract):
+        Minimum number of steps to wait in the expanded (tabular) model before
+        opening a contraction evaluation window.
+    window (w):
+        Length of the evaluation window in which the agent runs a shadow factor
+        model and compares predictive error to the tabular model.
+    margin (theta_contract):
+        Required relative improvement (fraction) for contracting.
+        Contract if MSE_factor < (1 - margin) * MSE_tab.
+    init_from_tabular:
+        Whether to initialize the shadow factor model from current tabular
+        estimates (group means of q-values).
+    free_tabular_on_contract:
+        Whether to drop tabular state on successful contraction, returning memory
+        to O(F) scaling (the compressed representation).
+    """
+
+    enabled: bool = True
+    holdout_steps: int = 50
+    window: int = 20
+    margin: float = 0.10
+    init_from_tabular: bool = True
+    free_tabular_on_contract: bool = True
+
+
+@dataclass
+class ContractionState:
+    """Mutable state for contraction evaluation windows."""
+    steps_since_last_eval: int = 0
+    in_eval_window: bool = False
+    eval_steps_remaining: int = 0
+
+    shadow_m: np.ndarray | None = None
+    shadow_n: np.ndarray | None = None
+
+    err_tab: List[float] = field(default_factory=list)
+    err_shadow: List[float] = field(default_factory=list)
+
+    def start(self, window: int) -> None:
+        self.in_eval_window = True
+        self.eval_steps_remaining = window
+        self.err_tab.clear()
+        self.err_shadow.clear()
+
+    def stop(self) -> None:
+        self.in_eval_window = False
+        self.eval_steps_remaining = 0
+        self.shadow_m = None
+        self.shadow_n = None
+        self.err_tab.clear()
+        self.err_shadow.clear()
+
+
+# -------------------------
 # Agents
 # -------------------------
 
@@ -279,22 +344,26 @@ class LinearTabular(Agent):
 class NetworkCycle(Agent):
     """Network regime with an explicit structural learning cycle.
 
-    Hypotheses:
-      - factor model: reward depends on factor f=c_i (compressed: O(F))
-      - tabular model: reward depends on option i (expanded: O(K))
+    Hypotheses / representations (Level 1):
+      - factor model G_F: rewards depend on factor f=c_i (compressed: O(F))
+      - tabular model G_tab: rewards depend on option i (expanded: O(K))
 
     Variable block:
       - learns factor-level exposure b_f (mean b within factor) online
-      - tracks cumulative exposure E_t and uses the true marginal penalty
+      - tracks cumulative exposure E_t and uses the marginal penalty 2 E_t b_i
 
-    Cycle:
-      Every W steps, compare rolling MSE of factor vs tabular predictions.
-      If tabular beats factor by a margin, expand/switch to tabular; otherwise
-      exploit factor compression.
+    Revision cycle (Level 2):
+      1) start in the factor model
+      2) predictive test: rolling-window factor prediction error
+      3) on mismatch: expand to tabular (G_F -> G_tab)
+      4) contraction: while in tabular, periodically open an evaluation window,
+         initialize a shadow factor model from tabular estimates, and contract
+         back (G_tab -> G_F) if predictive error improves by a margin.
 
     Ablations:
-      - Network-NoTest: disables the frequentist check (never evaluates mismatch)
-      - Network-NoUpdate: runs the check but disallows switching (fixed prior)
+      - Network-NoTest: disables the predictive test (never expands)
+      - Network-NoUpdate: runs the test but disallows transitions
+      - Network-NoContract: allows expansion but disables the return transition
     """
 
     def __init__(
@@ -306,23 +375,44 @@ class NetworkCycle(Agent):
         allow_update: bool,
         cost_w: CogCostWeights,
         local_L: int = 5,
+        *,
+        allow_contract: bool = True,
+        expand_mse_threshold: float = 1.5,
+        contraction: ContractionConfig | None = None,
     ) -> None:
         self.eps0 = eps0
         self.window = window
         self.margin = margin
         self.allow_test = allow_test
         self.allow_update = allow_update
+        self.allow_contract = allow_contract
+        self.expand_mse_threshold = expand_mse_threshold
         self.cost_w = cost_w
         self.local_L = local_L
 
-        if self.allow_test and self.allow_update:
+        if self.allow_test and self.allow_update and self.allow_contract:
             self.name = "Network-Full"
+        elif self.allow_test and self.allow_update and (not self.allow_contract):
+            self.name = "Network-NoContract"
         elif (not self.allow_test) and self.allow_update:
             self.name = "Network-NoTest"
         elif self.allow_test and (not self.allow_update):
             self.name = "Network-NoUpdate"
         else:
             self.name = "Network-NoTestNoUpdate"
+
+        # contraction config/state
+        if contraction is None:
+            contraction = ContractionConfig(
+                enabled=True,
+                holdout_steps=max(50, 3 * window),
+                window=window,
+                margin=margin,
+                init_from_tabular=True,
+                free_tabular_on_contract=True,
+            )
+        self.contraction_cfg = contraction
+        self.contraction_state = ContractionState()
 
         self.rng: np.random.Generator | None = None
         self.K = 0
@@ -341,11 +431,17 @@ class NetworkCycle(Agent):
 
         self.E: float = 0.0
         self.model: Literal["factor", "tabular"] = "factor"
-        self.expansions: int = 0  # allocating tabular state
-        self.revisions: int = 0   # switching between models
 
+        # metrics
+        self.expansions: int = 0      # allocating tabular state
+        self.contractions: int = 0    # successful return transitions
+        self.revisions: int = 0       # model switches (factor<->tabular)
+        self.contract_evals: int = 0  # evaluation windows opened
+        self.steps_factor: int = 0
+        self.steps_tabular: int = 0
+
+        # rolling error buffer for the expansion test
         self._err_factor: List[float] = []
-        self._err_tab: List[float] = []
 
         self.cost = CogCostCounter()
 
@@ -365,11 +461,16 @@ class NetworkCycle(Agent):
 
         self.E = 0.0
         self.model = "factor"
-        self.expansions = 0
-        self.revisions = 0
 
-        self._err_factor = []
-        self._err_tab = []
+        self.expansions = 0
+        self.contractions = 0
+        self.revisions = 0
+        self.contract_evals = 0
+        self.steps_factor = 0
+        self.steps_tabular = 0
+
+        self._err_factor.clear()
+        self.contraction_state = ContractionState()
 
         # memory scales with F (compressed)
         self.cost = CogCostCounter(mem_units=4.0 * self.F + 1.0, compute_units=0.0, switches=0)
@@ -385,31 +486,113 @@ class NetworkCycle(Agent):
         self.tabular_active = True
         self.cost.mem_units += 2.0 * self.K
         self.cost.switches += 1
-        self.expansions += 1  # track expansion separately
+        self.expansions += 1
 
-    def _maybe_switch(self, t: int) -> None:
-        if not self.allow_test:
+    def _maybe_free_tabular(self) -> None:
+        if not self.tabular_active:
             return
-        if t < self.window:
+        if not self.contraction_cfg.free_tabular_on_contract:
+            return
+        # Return memory footprint to the compressed regime.
+        self.q = None
+        self.n = None
+        self.tabular_active = False
+        self.cost.mem_units -= 2.0 * self.K
+
+    def _start_contraction_eval(self, env: EnvInstance) -> None:
+        """Open an evaluation window in which we compare tabular vs shadow-factor error."""
+        if not self.tabular_active:
+            return
+        assert self.q is not None and self.n is not None
+
+        # Initialize shadow factor model.
+        shadow_m = np.zeros(self.F, dtype=float)
+        shadow_w = np.zeros(self.F, dtype=float)
+
+        if self.contraction_cfg.init_from_tabular:
+            # Weighted group means using visit counts as confidence weights.
+            for i in range(self.K):
+                f = int(env.c[i])
+                w = float(self.n[i])
+                if w <= 0.0:
+                    continue
+                shadow_m[f] += w * float(self.q[i])
+                shadow_w[f] += w
+            for f in range(self.F):
+                if shadow_w[f] > 0.0:
+                    shadow_m[f] /= shadow_w[f]
+                else:
+                    shadow_m[f] = 0.5  # neutral prior if unseen
+            shadow_n = shadow_w.copy()
+        else:
+            shadow_m[:] = 0.5
+            shadow_n = np.zeros(self.F, dtype=float)
+
+        self.contraction_state.shadow_m = shadow_m
+        self.contraction_state.shadow_n = shadow_n
+        self.contraction_state.start(self.contraction_cfg.window)
+        self.contract_evals += 1
+
+        # Starting the evaluation window has a meta-cost (building the shadow model).
+        self.cost.compute_units += float(self.K)
+
+    def _maybe_expand(self, mse_factor: float) -> None:
+        """Expand to tabular when the predictive test flags a mismatch."""
+        if not (self.allow_test and self.allow_update):
+            return
+        if self.model != "factor":
             return
         if len(self._err_factor) < self.window:
             return
+        if mse_factor <= self.expand_mse_threshold:
+            return
 
-        mse_factor = float(np.mean(self._err_factor[-self.window:]))
-        mse_tab = float(np.mean(self._err_tab[-self.window:])) if len(self._err_tab) >= self.window else float("inf")
-        if not self.tabular_active:
-            mse_tab = float("inf")
+        self._maybe_allocate_tabular()
+        if self.allow_update:
+            self.model = "tabular"
+            self.revisions += 1
+            self.cost.switches += 1
+            # reset contraction timers once expanded
+            self.contraction_state.steps_since_last_eval = 0
+            self.contraction_state.stop()
 
-        current_model = self.model
-        if self.model == "factor" and mse_tab < (1.0 - self.margin) * mse_factor:
-            if self.allow_update:
-                self.model = "tabular"
-        elif self.model == "tabular" and mse_factor < (1.0 - self.margin) * mse_tab:
-            if self.allow_update:
-                self.model = "factor"
+    def _maybe_contract(self) -> None:
+        """End-of-window contraction decision."""
+        st = self.contraction_state
+        if not st.in_eval_window:
+            return
+        if st.eval_steps_remaining > 0:
+            return
+        if len(st.err_tab) == 0 or len(st.err_shadow) == 0:
+            st.stop()
+            return
 
-        if self.model != current_model:
-            self.revisions += 1  # track model switch
+        mse_tab = float(np.mean(st.err_tab))
+        mse_sh = float(np.mean(st.err_shadow))
+
+        do_contract = (
+            self.allow_update
+            and self.allow_contract
+            and self.contraction_cfg.enabled
+            and (mse_sh < (1.0 - self.contraction_cfg.margin) * mse_tab)
+        )
+
+        if do_contract:
+            assert st.shadow_m is not None and st.shadow_n is not None
+            assert self.m_hat is not None and self.n_f is not None
+
+            # Adopt the shadow factor reward estimates.
+            self.m_hat[:] = st.shadow_m
+            self.n_f[:] = np.maximum(st.shadow_n, 1.0)
+
+            self.model = "factor"
+            self.revisions += 1
+            self.contractions += 1
+            self.cost.switches += 1
+            self._maybe_free_tabular()
+
+        st.stop()
+        st.steps_since_last_eval = 0
 
     def act(self, t: int, env: EnvInstance) -> int:
         assert self.rng is not None and self.m_hat is not None and self.b_hat is not None
@@ -471,41 +654,76 @@ class NetworkCycle(Agent):
     def observe(self, a: int, r: float, pen: float, env: EnvInstance) -> None:
         assert self.m_hat is not None and self.n_f is not None and self.b_hat is not None and self.n_b is not None
 
-        # Update exposure state
+        # Track time spent in each representation (use the pre-update model).
+        if self.model == "factor":
+            self.steps_factor += 1
+        else:
+            self.steps_tabular += 1
+
+        # Update exposure state (always tracked).
         self.E += float(env.b[a])
 
-        # Update factor reward estimate
         f = int(env.c[a])
+
+        # Always update factor reward estimate (regardless of active model).
+        # The factor representation is the compressed model; keeping it current
+        # ensures it remains a valid contraction target and reflects the
+        # structural property that factor learning converges in O(F) observations.
         self.n_f[f] += 1.0
         self.m_hat[f] += (r - self.m_hat[f]) / self.n_f[f]
 
-        # Update factor exposure estimate (b is observed)
+        # Update factor exposure estimate (b is observed).
         self.n_b[f] += 1.0
         self.b_hat[f] += (float(env.b[a]) - self.b_hat[f]) / self.n_b[f]
 
-        # Update tabular reward estimate if expanded
-        if self.tabular_active:
+        # -------------------------
+        # Active-model learning + tests
+        # -------------------------
+
+        if self.model == "factor":
+            # Rolling predictive error for expansion test.
+            pred_f = float(self.m_hat[f])
+            self._err_factor.append((r - pred_f) ** 2)
+            if len(self._err_factor) > self.window:
+                self._err_factor.pop(0)
+
+            if self.allow_test and len(self._err_factor) >= self.window:
+                mse_f = float(np.mean(self._err_factor))
+                self._maybe_expand(mse_f)
+
+        else:
+            # Tabular learning.
+            self._maybe_allocate_tabular()
             assert self.q is not None and self.n is not None
             self.n[a] += 1.0
             self.q[a] += (r - self.q[a]) / self.n[a]
 
-        # Rolling errors for the explicit predictive check
-        pred_f = float(self.m_hat[f])
-        self._err_factor.append((r - pred_f) ** 2)
+            st = self.contraction_state
 
-        if self.tabular_active:
-            pred_t = float(self.q[a])
-            self._err_tab.append((r - pred_t) ** 2)
-        else:
-            self._err_tab.append(float("inf"))
+            # Manage evaluation window scheduling.
+            if (not st.in_eval_window) and self.allow_contract and self.allow_update and self.contraction_cfg.enabled:
+                st.steps_since_last_eval += 1
+                if st.steps_since_last_eval >= self.contraction_cfg.holdout_steps:
+                    self._start_contraction_eval(env)
+                    st.steps_since_last_eval = 0
 
-        # If factor predictor keeps failing, allocate tabular so we can compare.
-        if self.allow_test and (not self.tabular_active) and len(self._err_factor) >= self.window:
-            mse_f = float(np.mean(self._err_factor[-self.window:]))
-            if mse_f > 1.5:
-                self._maybe_allocate_tabular()
+            # During the evaluation window, update the shadow model and collect errors.
+            if st.in_eval_window and st.shadow_m is not None and st.shadow_n is not None:
+                pred_t = float(self.q[a])
+                pred_s = float(st.shadow_m[f])
 
-        self._maybe_switch(len(self._err_factor))
+                st.err_tab.append((r - pred_t) ** 2)
+                st.err_shadow.append((r - pred_s) ** 2)
+
+                # Update shadow factor estimate.
+                st.shadow_n[f] += 1.0
+                st.shadow_m[f] += (r - st.shadow_m[f]) / st.shadow_n[f]
+
+                st.eval_steps_remaining -= 1
+                if st.eval_steps_remaining <= 0:
+                    st.eval_steps_remaining = 0
+                    self._maybe_contract()
+
         self.cost.compute_units += 10.0
 
     def cog_cost(self) -> float:
@@ -661,9 +879,13 @@ def run_episode(env: EnvInstance, agent: Agent, rng: np.random.Generator) -> Dic
     util = total_r - total_pen
     cog = agent.cog_cost()
 
-    # Get expansion/revision counts from Network agents
+    # Get revision-cycle metrics from Network agents (other agents default to 0)
     expansions = float(getattr(agent, "expansions", 0))
+    contractions = float(getattr(agent, "contractions", 0))
     revisions = float(getattr(agent, "revisions", 0))
+    contract_evals = float(getattr(agent, "contract_evals", 0))
+    steps_factor = float(getattr(agent, "steps_factor", 0))
+    steps_tabular = float(getattr(agent, "steps_tabular", 0))
 
     return dict(
         total_reward=total_r,
@@ -675,7 +897,11 @@ def run_episode(env: EnvInstance, agent: Agent, rng: np.random.Generator) -> Dic
         dual_cond_steps=float(dual_cond_steps),
         E_abs_mean=E_abs_sum / float(env.spec.T),
         expansions=expansions,
+        contractions=contractions,
         revisions=revisions,
+        contract_evals=contract_evals,
+        steps_factor=steps_factor,
+        steps_tabular=steps_tabular,
     )
 
 
@@ -714,6 +940,7 @@ def run_suite(cfg: RunSpec, out_dir: str) -> pd.DataFrame:
                         DotRandom(cfg.cost_w),
                         LinearTabular(cfg.eps0, cfg.cost_w),
                         NetworkCycle(cfg.eps0, cfg.window, cfg.margin, True, True, cfg.cost_w),
+                        NetworkCycle(cfg.eps0, cfg.window, cfg.margin, True, True, cfg.cost_w, allow_contract=False),
                         NetworkCycle(cfg.eps0, cfg.window, cfg.margin, False, True, cfg.cost_w),
                         NetworkCycle(cfg.eps0, cfg.window, cfg.margin, True, False, cfg.cost_w),
                     ]
@@ -744,7 +971,11 @@ def run_suite(cfg: RunSpec, out_dir: str) -> pd.DataFrame:
                                 dual_rate_cond=dual_rate_cond,
                                 E_abs_mean=float(ep["E_abs_mean"]),
                                 expansions=float(ep["expansions"]),
+                                contractions=float(ep["contractions"]),
                                 revisions=float(ep["revisions"]),
+                                contract_evals=float(ep["contract_evals"]),
+                                steps_factor=float(ep["steps_factor"]),
+                                steps_tabular=float(ep["steps_tabular"]),
                             )
                         )
 
@@ -773,7 +1004,11 @@ def run_suite(cfg: RunSpec, out_dir: str) -> pd.DataFrame:
             dual_rate_cond_std=("dual_rate_cond", "std"),
             E_abs_mean=("E_abs_mean", "mean"),
             expansions_mean=("expansions", "mean"),
+            contractions_mean=("contractions", "mean"),
             revisions_mean=("revisions", "mean"),
+            contract_evals_mean=("contract_evals", "mean"),
+            steps_factor_mean=("steps_factor", "mean"),
+            steps_tabular_mean=("steps_tabular", "mean"),
         )
     )
     table_path = artifacts_dir / "tables" / "agg_summary.csv"
@@ -786,7 +1021,7 @@ def run_suite(cfg: RunSpec, out_dir: str) -> pd.DataFrame:
     for stakes in [0.0, 1.0]:
         plt.figure()
         sub = agg[(agg["structure"] == "structured") & (agg["stakes"] == stakes)]
-        for agent in ["Dot", "Linear", "Network-Full", "Network-NoTest", "Network-NoUpdate"]:
+        for agent in ["Dot", "Linear", "Network-Full", "Network-NoContract", "Network-NoTest", "Network-NoUpdate"]:
             s = sub[sub["agent"] == agent].sort_values("K")
             if len(s) == 0:
                 continue
@@ -802,7 +1037,7 @@ def run_suite(cfg: RunSpec, out_dir: str) -> pd.DataFrame:
     # Fig 2: CONDITIONAL dual-purpose pick rate (when hedging matters: |E| >= 0.5)
     plt.figure()
     sub = agg[(agg["structure"] == "structured") & (agg["stakes"] == 1.0)]
-    for agent in ["Linear", "Network-Full", "Network-NoTest", "Network-NoUpdate"]:
+    for agent in ["Linear", "Network-Full", "Network-NoContract", "Network-NoTest", "Network-NoUpdate"]:
         s = sub[sub["agent"] == agent].sort_values("K")
         if len(s) == 0:
             continue
@@ -818,7 +1053,7 @@ def run_suite(cfg: RunSpec, out_dir: str) -> pd.DataFrame:
     # Fig 3: cycle response in unstructured, stakes=0 (prior-wrong) - show expansions
     plt.figure()
     sub = agg[(agg["structure"] == "unstructured") & (agg["stakes"] == 0.0)]
-    for agent in ["Network-Full", "Network-NoTest", "Network-NoUpdate"]:
+    for agent in ["Network-Full", "Network-NoContract", "Network-NoTest", "Network-NoUpdate"]:
         s = sub[sub["agent"] == agent].sort_values("K")
         if len(s) == 0:
             continue

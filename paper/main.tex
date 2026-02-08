@@ -8,6 +8,12 @@
 \usepackage{hyperref}
 \usepackage{microtype}
 \usepackage{enumitem}
+\usepackage{amsthm}
+\usepackage{tikz}
+\usetikzlibrary{positioning,arrows.meta}
+
+\newtheorem{proposition}{Proposition}
+
 
 \title{Compression Efficiency and Structural Learning\\as a Computational Model of DLN Cognitive Stages}
 
@@ -24,13 +30,27 @@ Risk Efficacy \& Redline Rising\\
 \maketitle
 
 \begin{abstract}
-Extending the computational cognitive modeling tradition in which formal frameworks provide foundations for behavioral validation (Marr, 1982; Anderson et al., 2004; Kemp \& Tenenbaum, 2008), we propose a computational instantiation of three cognitive stages from the Dot--Linear--Network (DLN) framework, grounded in a compression-efficiency thesis. DLN stages are characterized as representational topologies at the level of an agent's belief-dependency structure: Dot as no persistent belief graph (reactive policies with negligible state), Linear as a null graph over option beliefs ($K$ independent option estimates with no information sharing), and Network as shared latent structure (a bipartite factor graph in which $F$ latent factors connect to $K$ options), augmented by a temporal exposure state and an explicit structural learning cycle (hypothesis $\rightarrow$ test $\rightarrow$ update/expand).
+Extending the computational cognitive modeling tradition in which formal frameworks provide foundations for behavioral validation \cite{Marr1982,ACTR2004,KempTenenbaum2008}, we propose a computational instantiation of three cognitive stages from the Dot--Linear--Network (DLN) framework, grounded in a compression-efficiency thesis. DLN stages are characterized as graph-structured belief-dependency representations used to evaluate options: Dot as no persistent belief graph (reactive policies with negligible internal state), Linear as a null graph over option beliefs ($K$ independent option estimates with no information sharing), and Network as shared latent structure (a bipartite factor graph in which $F$ latent factors connect to $K$ options), augmented by a temporal exposure state and an explicit structural learning cycle (hypothesis $\rightarrow$ test $\rightarrow$ update/expand).
+
+We formalize this cycle as navigation in a model space $\mathcal{M}$ whose
+elements are candidate belief-dependency structures.  DLN stages are then
+characterized by two formal objects: the belief-dependency graph $G$
+(determining Level~1 inference cost) and a revision graph
+$\mathcal{R}=(\mathcal{M},\mathcal{T})$ over $\mathcal{M}$ (determining Level~2
+meta-cognitive capacity).  Linear cognition is a fixed point in $\mathcal{M}$
+with $\mathcal{T}=\emptyset$; Network cognition revises by traversing edges of
+$\mathcal{R}$, including a return transition that enables bounded recovery after
+model failure.
+
 In this mapping, Linear cognition learns and evaluates $K$ options independently ($O(K)$ cognitive cost), while Network cognition represents shared structure once ($O(F)$ cognitive cost for $F$ shared factors) and incorporates an explicit structural learning cycle: structural hypothesis $\rightarrow$ predictive test $\rightarrow$ update/expansion when the hypothesis fails.
 We distinguish two compression targets: \emph{Option-factor structure} (shared structure in expected outcomes) and \emph{Stakes-factor structure} (shared structure in consequence-bearing exposures). Their intersection yields \emph{jointly efficient actions} that improve expected outcomes while simultaneously improving marginal stakes impact.
-In a bandit-like simulation with factor-structured options and factor-structured stakes ($100$ seeds, $K\in\{20,50,100,200\}$, $F{=}5$, $T{=}80$), Network policies dominate Linear policies in cost-adjusted utility once the option set is sufficiently large (for example, at $K{=}200$ with stakes off, Network-Full achieves cost-adjusted utility $80.53$ vs.\ Linear $64.46$).
+In a bandit-like simulation with factor-structured options and factor-structured stakes ($100$ seeds, $K\in\{20,50,100,200\}$, $F{=}5$, $T{=}80$), Network policies dominate Linear policies in cost-adjusted utility once the option set is sufficiently large (for example, at $K{=}200$ with stakes off, Network-Full achieves cost-adjusted utility $80.53$ vs.\ Linear $64.46$). We also derive an analytic crossover condition $K^* = F + c_{\mathrm{meta}}/c_{\mathrm{param}}$ that specifies when the fixed Level~2 overhead of revision is outweighed by Level~1 compression.
 With stakes active, Linear policies incur large exposure penalties because they ignore covariance-induced cross-terms from cumulative exposure, while Network policies learn factor-level exposures and track cumulative exposure, maintaining positive utility (for example, at $K{=}200$ with stakes on, mean utility $66.78$ for Network vs.\ $-929.11$ for Linear).
 These results evaluate internal consistency of a DLN-to-computation mapping under explicit assumptions; they do not validate a developmental theory in humans.
 \end{abstract}
+
+
+
 
 
 
@@ -83,7 +103,14 @@ This shared-parent structure is the graph-theoretic source of integration in our
 \paragraph{Where cycles enter: dynamics and meta-learning.}
 Although the factor belief graph is a DAG, Network-stage cognition in DLN is also associated with feedback and revisitation.
 In this paper, those notions correspond to (i) a closed-loop dependency in the \emph{system dynamics} when stakes are active (actions update exposure $E_t$, and $E_t$ feeds back into the marginal penalty term used to evaluate future actions), and (ii) a \emph{process-level} structural learning cycle (hypothesis $\rightarrow$ test $\rightarrow$ update/expand) that revises which belief graph is being used.
-This distinction is necessary to avoid conflating graph topology with inference complexity: the present claim is not that cyclic belief graphs enable cheaper inference than trees. Rather, investing in shared latent structure can reduce the number of distinct quantities that must be learned from $K$ to $F$ when the structure hypothesis is correct.
+
+Section~\ref{sec:model_space} formalizes this distinction by defining a model
+space $\mathcal{M}$ whose elements are candidate belief structures and a
+revision graph $\mathcal{R}$ whose edges are transitions between them; the cycle
+that defines Network cognition is a structural feature of $\mathcal{R}$, not of
+any individual belief graph $G\in\mathcal{M}$.
+
+This distinction is necessary to avoid conflating graph structure with inference complexity: the present claim is not that cyclic belief graphs enable cheaper inference than trees. Rather, investing in shared latent structure can reduce the number of distinct quantities that must be learned from $K$ to $F$ when the structure hypothesis is correct.
 
 \subsection{Cost-scaling interpretation}
 
@@ -112,6 +139,71 @@ G_{\mathrm{Net}}(F)=\Theta(F+L)=\Theta(F)\ \text{for fixed }L.
 When the factor hypothesis fails and the model expands to a tabular representation, Network reverts to $\Theta(K)$ state and computation.
 Thus the compression thesis predicts an advantage only when $F\ll K$ \emph{and} the factor hypothesis remains empirically adequate; when $K=F$ (no shared components), the advantage should vanish, constituting a falsification criterion for the compression thesis.
 
+\begin{proposition}[Cost separation and recovery bound]\label{prop:crossover}
+Let an agent face a $K$-option decision environment with $F$-factor structure
+($F \leq K$).  Let $c_{\mathrm{param}}$ be the per-element parameter learning
+cost and $c_{\mathrm{meta}}$ be the Level~2 model-revision overhead (navigation
+of the revision graph $\mathcal{R}$, Section~\ref{sec:model_space}).  Then:
+
+\begin{enumerate}[label=(\roman*)]
+\item \textbf{Crossover.}
+For $K < K^* = F + c_{\mathrm{meta}}/c_{\mathrm{param}}$, Linear achieves lower
+total cognitive cost than Network (Network cannot do better than operating in a
+correct compressed model and still paying its Level~2 overhead).
+For $K > K^*$, Network under a correct factor hypothesis achieves lower total
+cost by replacing $O(K)$ per-episode parameter maintenance with $O(F)$, up to the
+fixed overhead $c_{\mathrm{meta}}$.
+
+\item \textbf{Catastrophic failure under cross-terms.}
+When the environment contains stakes-factor structure with covariance coupling,
+Linear's utility degrades without bound in cumulative exposure $E_t$ because it
+cannot represent the marginal penalty term $2E_t b_i$.  Network's utility
+remains bounded because it tracks $E_t$ and computes marginal impact.
+
+\item \textbf{Recovery bound.}
+When the factor hypothesis is incorrect and the agent expands to
+$G_{\mathrm{tab}}$, an agent whose revision graph $\mathcal{R}$ includes a
+return transition $(G_{\mathrm{tab}}, G_F) \in \mathcal{T}$ recovers $O(F)$ cost
+scaling within $n_{\mathrm{contract}} + w + n_{\mathrm{converge}}$ steps after
+factor structure becomes present, where $n_{\mathrm{converge}}$ is the number of
+observations required for within-factor variance to fall below the contraction
+threshold.  An agent without a return transition (expand-only Network or Linear)
+remains at $O(K)$ cost indefinitely.
+\end{enumerate}
+
+Parts (i) and (ii) are tested by the existing simulation results.
+Part (iii) is tested by the contraction ablation
+(Section~\ref{sec:contraction}).
+\end{proposition}
+
+\paragraph{Proof sketch for (i).}
+In the absence of structural sharing, Linear must maintain $K$ parameters, so
+its per-episode cost is proportional to $c_{\mathrm{param}}K$.  A Network agent
+that is operating in a correct compressed model maintains only $F$ parameters,
+but still pays a fixed Level~2 overhead $c_{\mathrm{meta}}$ for monitoring and
+revision.  Comparing $c_{\mathrm{param}}K$ against $c_{\mathrm{param}}F +
+c_{\mathrm{meta}}$ yields the crossover condition $K^* = F +
+c_{\mathrm{meta}}/c_{\mathrm{param}}$.
+
+\paragraph{Proof sketch for (ii).}
+Under stakes, the true marginal impact of choosing option $i$ contains a
+cross-term proportional to $2E_t b_i$, where $E_t$ is cumulative exposure.  A
+Linear agent that treats options independently can include a per-option penalty
+(e.g., $\lambda b_i^2$) but cannot represent the coupling to $E_t$, so it cannot
+stabilize exposure as $|E_t|$ grows.  A Network agent that tracks $E_t$ and
+computes marginal impact can keep exposure bounded, preventing unbounded penalty
+growth.
+
+\paragraph{Proof sketch for (iii).}
+After expanding to $G_{\mathrm{tab}}$, an agent with a return transition can
+periodically test whether a compressed factor model predicts well again (for
+example via a length-$w$ evaluation window after a holdout period
+$n_{\mathrm{contract}}$).  Once factor structure is present and sufficient data
+are accumulated ($n_{\mathrm{converge}}$ observations), the agent contracts back
+to $G_F$ and returns to $O(F)$ scaling.  Without a return transition, the agent
+remains in the expanded model and continues to incur $O(K)$ cost.
+
+
 This relates to classical results on shrinkage and hierarchical estimation: when structure exists, sharing statistical strength across related items improves efficiency \cite{JamesStein1961,EfronMorris1977}. In our mapping, Network operationalizes this by tracking factor-level beliefs and using them to score options, while retaining the capacity to expand to option-specific state when structure is violated.
 
 \subsection{Factor structure as a computational analogue of network integration}
@@ -123,12 +215,141 @@ Stakes-factor structure adds an additional coupling: the current exposure state 
 This mapping implies a design requirement: to test DLN Network as integrated structure, the environment must contain shared components and cross-constraints that make reuse and coupling beneficial. If structure is absent or if $K=F$ (no shared components), the representation should not help. Those boundary tests are part of the falsifiable surface of the thesis.
 
 
+
+
+\subsection{Model space and revision graph}\label{sec:model_space}
+
+The preceding sections characterize DLN stages by the within-episode
+belief-dependency graph $G$ that an agent uses to represent outcomes, exposures,
+and option relations.  Our Network instantiation also implements an explicit
+structural learning cycle that can \emph{revise which belief graph is active}
+when a structural hypothesis fails.  To formalize this two-level distinction, we
+separate (i) inference and learning \emph{within} a belief graph (Level~1) from
+(ii) monitoring and revising the belief graph itself (Level~2).
+
+\paragraph{Model space.}
+Let $\mathcal{M}$ be a set of candidate belief-dependency structures.  In the
+present instantiation, the core model space contains two elements:
+a compressed factor graph $G_F$ (shared latent factors connecting options) and
+an expanded tabular graph $G_{\mathrm{tab}}$ (independent option beliefs).
+Formally, $\mathcal{M}=\{G_F,\,G_{\mathrm{tab}}\}$.
+
+\paragraph{Revision graph.}
+Define the \emph{revision graph} as a directed graph over model space,
+$\mathcal{R}=(\mathcal{M},\mathcal{T})$, where $\mathcal{T}\subseteq
+\mathcal{M}\times\mathcal{M}$ is the set of revision transitions available to an
+agent.  In our simulation, the key transitions are:
+(i)~\emph{expansion} (switching from $G_F$ to $G_{\mathrm{tab}}$ when the factor
+hypothesis fails) and (ii)~\emph{contraction} (switching from $G_{\mathrm{tab}}$
+back to $G_F$ when predictive evidence supports compression again).
+
+\paragraph{Completing the cycle: contraction.}
+Expansion alone yields an irreversible path $G_F \rightarrow
+G_{\mathrm{tab}}$.  Adding a contraction transition
+$(G_{\mathrm{tab}},G_F)\in\mathcal{T}$ completes a revision cycle.  This return
+transition matters even when $|\mathcal{M}|=2$: it is the mechanism that
+enables an agent to recover compressed $O(F)$ operation after a period of
+operating in an expanded $O(K)$ representation.
+
+\paragraph{Revision capacity by DLN stage.}
+The revision graph characterizes each stage's meta-cognitive capacity in
+graph-combinatorial terms:
+%
+\begin{itemize}[leftmargin=*]
+\item \textbf{Dot.}  No model space ($|\mathcal{M}|=0$); $\mathcal{R}$
+  is empty.  No revision capacity.
+\item \textbf{Linear.}  $\mathcal{M} = \{G_{\mathrm{tab}}\}$; a single
+  vertex with no edges.  The agent occupies a fixed point in model space.
+\item \textbf{Network (expand-only).}  $\mathcal{M} =
+  \{G_F, G_{\mathrm{tab}}\}$; one directed edge
+  $G_F \to G_{\mathrm{tab}}$.  The agent can detect model failure and
+  expand, but cannot return to a compressed representation.
+\item \textbf{Network (full cycle).}  Two directed edges (expand and
+  contract).  $\mathcal{R}$ contains a cycle: the agent can depart from a
+  model, operate under an alternative, and return.  This is the
+  graph-theoretic signature of full revision capacity.
+\end{itemize}
+%
+The functional consequence of the return transition is stated in
+Proposition~\ref{prop:crossover}(iii): an agent that can return to
+$G_F$ recovers $O(F)$ cost scaling in bounded time; an agent that
+cannot is permanently locked at $O(K)$.
+
+\paragraph{Two levels of computation.}
+Level~1 computation concerns inference and parameter learning within a chosen
+belief graph $G\in\mathcal{M}$ (e.g., updating factor means or option means).
+Level~2 computation concerns monitoring model adequacy and executing transitions
+in $\mathcal{R}$.  Proposition~\ref{prop:crossover}(iii) establishes that an
+agent whose revision graph includes a return transition recovers $\Theta(F)$
+scaling in bounded time once factor structure is present, while an agent without
+a return transition remains at $\Theta(K)$ permanently.
+
+\paragraph{Relationship to the tractable-cognition literature.}
+Work on probabilistic graphical models and treewidth analyzes the complexity of
+inference \emph{within a fixed model structure} \cite{Pearl1988,vanRooij2008,Kwisthout2010}.
+Our claims are different in kind: we focus on when representing shared
+structure reduces the number of distinct quantities an agent must learn from $K$
+to $F$, and on what revision transitions are required to recover that advantage
+after model failure.
+
+
 \begin{figure}[t]
   \centering
-  \includegraphics[width=0.98\linewidth]{figures/fig_dln_topology.png}
-  \caption{Belief-dependency structures in the present DLN instantiation. Dot maintains no persistent belief graph for option evaluation. Linear maintains $K$ independent option beliefs (null graph; no edges). Network represents shared latent structure with $F$ factor nodes connecting to $K$ option nodes (bipartite DAG), tracks exposure $E_t$ over time, and updates its structure via a hypothesis--test--update cycle.}
+  \begin{minipage}[t]{0.56\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{figures/fig_dln_topology.png}
+    \vspace{0.5ex}
+
+    {\small\textbf{(a)} Belief-dependency structures (Level~1).}
+  \end{minipage}\hfill
+  \begin{minipage}[t]{0.41\linewidth}
+    \centering
+    \begin{tikzpicture}[
+        >=Latex,
+        every node/.style={circle,draw,inner sep=1pt,minimum size=0.55cm},
+      ]
+      % Dot
+      \node[draw=none] (dot) at (0,0) {$\emptyset$};
+      \node[draw=none, below=0.35cm of dot] {\scriptsize Dot};
+
+      % Linear
+      \node (lin) at (2.2,0) {$G_{\mathrm{tab}}$};
+      \node[draw=none, below=0.35cm of lin] {\scriptsize Linear};
+
+      % Network (expand-only)
+      \node (gF1) at (-0.4,-1.6) {$G_F$};
+      \node (gT1) at (0.9,-1.6) {$G_{\mathrm{tab}}$};
+      \draw[->] (gF1) -- (gT1);
+      \node[draw=none, below=0.35cm of gT1, xshift=-0.65cm] {\scriptsize Network (expand-only)};
+
+      % Network (full cycle)
+      \node (gF2) at (1.8,-1.6) {$G_F$};
+      \node (gT2) at (3.1,-1.6) {$G_{\mathrm{tab}}$};
+      \draw[->] (gF2) to[bend left=25] (gT2);
+      \draw[->] (gT2) to[bend left=25] (gF2);
+      \node[draw=none, below=0.35cm of gT2, xshift=-0.65cm] {\scriptsize Network (full cycle)};
+
+      \node[draw=none, below=0.95cm of gF2, anchor=west] {\scriptsize $\mathcal{R}$ contains a cycle};
+    \end{tikzpicture}
+    \vspace{0.5ex}
+
+    {\small\textbf{(b)} Revision graphs over model space (Level~2).}
+  \end{minipage}
+
+  \caption{
+(a) Belief-dependency structures (Level~1). Dot: no persistent graph.
+Linear: null graph on $K$ option nodes. Network: bipartite factor DAG with $F$
+factor nodes connected to $K$ options.
+(b) Revision graphs over model space (Level~2). Dot: empty model space.
+Linear: fixed point in model space (no revision edges).
+Network (expand-only): directed path $G_F \rightarrow G_{\mathrm{tab}}$.
+Network (full cycle): two directed transitions (expand and contract) forming a
+cycle in $\mathcal{R}$, enabling bounded recovery
+(Proposition~\ref{prop:crossover}(iii)).
+}
   \label{fig:dln_topology}
 \end{figure}
+
 
 
 \section{Claims and predictions}
@@ -249,20 +470,38 @@ Classical work on probabilistic graphical models \cite{Pearl1988} and the treewi
 The within-timestep belief graph for the Network agent is itself a low-treewidth bipartite DAG; we do not claim that cycles in belief graphs make inference cheaper than trees.
 Instead, we focus on a representation-construction question: when the world admits shared structure with $F\ll K$ and the factor hypothesis is empirically adequate, representing shared structure reduces the number of distinct quantities that must be learned from $K$ to $F$; when structure is absent or incorrect, expansion toward a tabular representation removes the advantage.
 
+\paragraph{Formalizing the gap.}
+The structure-learning literature distinguishes learning \emph{within} a chosen
+representation from learning \emph{which} representation to use (or when to
+switch) \cite{KempTenenbaum2008,CollinsFrank2013}.  Section~\ref{sec:model_space}
+makes this distinction explicit in our DLN instantiation: Level~1 computation
+occurs within a belief-dependency graph $G\in\mathcal{M}$, while Level~2
+computation is navigation in the revision graph $\mathcal{R}$ over model space.
+The crossover $K^* = F + c_{\mathrm{meta}}/c_{\mathrm{param}}$
+(Proposition~\ref{prop:crossover}(i)) makes precise when paying a fixed Level~2
+overhead is cost-effective relative to the $O(F)$ savings from representing
+shared structure.
+
+
 
 
 \section{Simulation design}
 
 \subsection{Structural learning cycle}
 
-The Network stage is not defined merely by the presence or absence of structure. It is defined as an explicit learning cycle:
+The Network stage is not defined merely by the presence or absence of structure. It is defined as an explicit revision cycle over a small model space (Section~\ref{sec:model_space}):
 \begin{enumerate}[leftmargin=*]
-  \item \textbf{Structural hypothesis (Bayesian prior over structure).} Start with a compressed factor hypothesis for outcome prediction.
-  \item \textbf{Predictive test (frequentist check).} Compare rolling predictive error of the factor predictor against an expanded tabular predictor.
-  \item \textbf{Branch.} If the factor model predicts well, exploit compression ($O(F)$ state). If it predicts poorly, expand/update to a tabular model ($O(K)$ state).
+  \item \textbf{Structural hypothesis (compressed prior).} Start with a compressed factor hypothesis for outcome prediction in $G_F$.
+  \item \textbf{Predictive test.} Maintain a rolling window of factor prediction errors (mean squared error over the last $W$ steps). If the rolling error exceeds an expansion threshold $\tau_{\mathrm{expand}}$, treat this as evidence that the factor hypothesis is inadequate.
+  \item \textbf{Expansion on mismatch.} On mismatch, expand to a tabular representation $G_{\mathrm{tab}}$ (allocate per-option outcome estimates). This removes compression but restores predictive adequacy when the factor hypothesis is wrong.
+  \item \textbf{Contraction (return transition).} While operating in the expanded model, periodically test whether a compressed factor model can again predict well. After a holdout period $n_{\mathrm{contract}}$, open an evaluation window of length $w$ in which the agent runs a \emph{shadow} factor model, initialized from current tabular estimates (group means over options that share a factor). If the shadow factor model satisfies
+  $\mathrm{MSE}_{\mathrm{shadow}} < (1-\theta_{\mathrm{contract}})\mathrm{MSE}_{\mathrm{tab}}$,
+  the agent contracts back to $G_F$ and (optionally) frees tabular state, returning memory scaling to $O(F)$.
 \end{enumerate}
 
-This constitutes a concrete implementation of a structural prior $\rightarrow$ test $\rightarrow$ revised prior mechanism: the hypothesis is the factor predictor, the test is a rolling-window predictive check, and the revised hypothesis is represented by switching or expanding model class when the hypothesis fails.
+This constitutes a concrete implementation of a structural prior $\rightarrow$ test $\rightarrow$ revised prior mechanism: the hypothesis is the factor predictor, the test is a rolling-window predictive check, and the revised hypothesis is represented by transitions in the revision graph (expansion $G_F\!\rightarrow\!G_{\mathrm{tab}}$ and contraction $G_{\mathrm{tab}}\!\rightarrow\!G_F$).
+
+We report three Network ablations that isolate components of this Level~2 cycle: Network-NoTest disables the predictive check; Network-NoUpdate runs the check but disallows transitions; Network-NoContract allows expansion but disables the return transition, making revision irreversible once the model expands.
 
 
 \subsection{Environment}
@@ -287,16 +526,18 @@ with small idiosyncratic noise. Utility is the sum of outcomes minus incremental
 \]
 This scoring function treats hedging as separable across options and does not track cumulative exposure.\footnote{A hybrid ``Linear+$E_t$'' agent could track cumulative exposure while maintaining independent option beliefs. We exclude this design because tracking $E_t$ requires representing how past choices affect future evaluations---a cross-option temporal dependency inconsistent with the branch-by-branch independence that characterizes Linear-stage cognition. Isolating the factor-compression and exposure-tracking contributions via such an ablation is a direction for future work.}
 
-\textbf{Network-Full.} The Network-Full agent maintains factor-level outcome estimates $\widehat{m}_f$ and factor-level exposure estimates $\widehat{b}_f$, tracks $E_t$, and uses the true marginal penalty form. Within a chosen factor, Network searches over at most $L{=}5$ options to avoid hiding $O(K)$ scans in factor selection. It also runs the predictive check and can expand to tabular outcome estimates when the factor hypothesis fails.
+\textbf{Network-Full.} The Network-Full agent maintains factor-level outcome estimates $\widehat{m}_f$ and factor-level exposure estimates $\widehat{b}_f$, tracks $E_t$, and uses the true marginal penalty form. Within a chosen factor, Network searches over at most $L{=}5$ options to avoid hiding $O(K)$ scans in factor selection. It also runs the predictive check, can expand to tabular outcome estimates when the factor hypothesis fails, and can contract back to the factor model when predictive evidence supports compression again (completing a return transition in the revision graph).
 
-\textbf{Ablations.} Network-NoTest disables the predictive check; Network-NoUpdate runs the check but disallows switching.
+\textbf{Ablations.} Network-NoTest disables the predictive check; Network-NoUpdate runs the check but disallows model-class transitions; Network-NoContract allows expansion but disables the return transition to the compressed model.
 
 \subsection{Metrics and statistics}
 
 Per episode we report:
 (i) total outcome, (ii) total stakes penalty, (iii) utility $U=\sum_t (r_t-\Delta P_t)$,
 (iv) cognitive cost proxy $C$, (v) cost-adjusted utility $U-\alpha C$,
-(vi) jointly efficient action pick count, and (vii) number of hypothesis expansions (switches).
+(vi) jointly efficient action pick count, (vii) number of expansion transitions $G_F\rightarrow G_{\mathrm{tab}}$,
+(viii) number of contraction (return) transitions $G_{\mathrm{tab}}\rightarrow G_F$, and
+(ix) time spent in each model class (steps in $G_F$ vs.\ $G_{\mathrm{tab}}$).
 
 Results are averaged over $100$ random seeds with paired comparisons across seeds (same environment seed per agent). For key paired differences we report bootstrap $95\%$ confidence intervals (percentile bootstrap over seeds) and paired Cohen's $d$ on the seed-wise difference.
 
@@ -427,11 +668,46 @@ $K$ & Dot & Linear & Network-Full \\
 \end{table}
 
 
+\subsection{Contraction and bounded recovery (return transition)}\label{sec:contraction}
+
+The prior-wrong condition above isolates why the Network stage must include
+\emph{expansion}: when the factor hypothesis fails, an agent that remains in
+$G_F$ is locked into a mis-specified compressed representation.  Completing the
+revision cycle requires an additional capability: once compression becomes
+appropriate again, the agent must be able to return to $G_F$.
+
+To isolate this return transition, we include Network-NoContract, which is
+identical to Network-Full except that it disables contraction
+($G_{\mathrm{tab}}\rightarrow G_F$).  We evaluate Network-Full and
+Network-NoContract in a recovery setting that forces initial expansion and then
+makes compression appropriate again.  The key measurements are
+(i)~the number of contraction (return) events,
+(ii)~the number of contraction evaluation windows opened, and
+(iii)~the fraction of steps spent in $G_F$ versus $G_{\mathrm{tab}}$.
+These measurements directly test Proposition~\ref{prop:crossover}(iii): an agent
+whose revision graph includes a return transition should recover $\Theta(F)$
+scaling in bounded time after factor structure becomes present, whereas an
+agent without a return transition remains at $\Theta(K)$ cost scaling.
+
+
 \section{Discussion}
 
 \subsection{Interpretation}
 
-Under Assumptions A1--A6, the simulation isolates the efficiency consequences of representing shared structure. Dot is included as the null-graph baseline (no accumulation, no compression) to anchor the three-stage ordering; it is expected to ignore both structure and stakes. The simulation does \emph{not} establish whether humans actually represent options and exposures in this way. Developmental interpretations are also potentially culturally contingent; see WEIRD-sampling cautions \cite{Henrich2010}. In humans, metacognitive monitoring and perceived agency may modulate when higher-cost integrated reasoning is deployed \cite{Flavell1979,Bandura1997}, but we do not model that deployment layer here. The mapping should be interpreted as follows: \emph{if} DLN Network is interpreted as a topology that supports factor reuse and cross-branch interaction, \emph{then} it should produce $O(F)$-like scaling advantages and the ability to identify jointly efficient actions.
+Under Assumptions A1--A6, the simulation isolates the efficiency consequences of representing shared structure. Dot is included as the null-graph baseline (no accumulation, no compression) to anchor the three-stage ordering; it is expected to ignore both structure and stakes. The simulation does \emph{not} establish whether humans actually represent options and exposures in this way. Developmental interpretations are also potentially culturally contingent; see WEIRD-sampling cautions \cite{Henrich2010}. The revision graph $\mathcal{R}$ introduced in Section~\ref{sec:model_space} provides a formal model of this deployment layer: the structural learning cycle implements Level~2 computation (navigation of $\mathcal{R}$), and the crossover condition $K^* = F + c_{\mathrm{meta}}/c_{\mathrm{param}}$ determines when investing in Level~2 is cost-effective.  This connects to metacognitive monitoring \cite{Flavell1979,Bandura1997} by formalizing what is monitored (model adequacy, via predictive tests) and what actions are available in response (transitions in $\mathcal{R}$).
+
+\paragraph{Meta-cognition as a property of model space.}
+DLN stages differ not only in the structure of the belief graph $G$ (Level~1) but
+in whether the agent can navigate a non-trivial model space (Level~2).  Linear
+cognition is a fixed point in $\mathcal{M}$.  Network cognition traverses
+$\mathcal{M}$ via revision transitions, including a return transition whose
+functional consequence is bounded cost recovery after model failure
+(Proposition~\ref{prop:crossover}(iii)).  This provides a foundation for
+instantiating DLN in other domains: any system where an observer, agent, or
+learner can be characterized by (i)~a current representational structure and
+(ii)~a set of available transitions between structures can be classified by
+the structure of its revision graph.
+
 
 The compression-efficiency thesis tested here is distinct from exploration-driven adaptation; the Network advantage obtains in stable environments without requiring distribution shift or novelty-seeking (Section~1). Exploration mechanisms are well-studied elsewhere \cite{Gershman2018,RussoBandits2018}; our focus is the representational reuse that makes compression beneficial even when the environment is stationary.
 
@@ -488,8 +764,19 @@ The complete source code, simulation framework, and reproducibility scripts are 
 
 \section{Conclusion}
 
-We presented a computational mapping of DLN stages where the Network stage is defined by compression efficiency and an explicit structural learning cycle rather than by entropy-based adaptivity. Dot remains a baseline regime with no accumulation: it neither benefits from option-factor structure nor controls cumulative exposure under stakes, and therefore stays near baseline utility. Under explicit assumptions, Network policies outperform Linear policies in stable environments once option sets are sufficiently large (Option-factor structure compression), avoid exposure degradation under stakes through factor-level exposure learning and cumulative exposure tracking (Stakes-factor structure compression), and expand/update when a structural hypothesis fails (learning cycle). The mapping is falsifiable at the level of assumptions and boundary tests: when shared structure vanishes ($K=F$) or when structure is weak, Network advantage should disappear. This provides a concrete bridge between qualitative DLN descriptions and measurable computational predictions.
-
+Two formal objects carry the DLN distinction: the belief-dependency graph $G$,
+whose structure determines Level~1 inference cost, and the revision graph
+$\mathcal{R}$ over model space, whose structure determines Level~2 meta-cognitive
+capacity.  Linear cognition is a fixed point in model space; Network cognition
+navigates $\mathcal{R}$ via hypothesis, test, and revision transitions.
+Proposition~\ref{prop:crossover} derives the crossover
+$K^* = F + c_{\mathrm{meta}}/c_{\mathrm{param}}$ from the interaction between
+Level~1 compression and Level~2 overhead, and shows that including a return
+transition in $\mathcal{R}$ provides bounded recovery after model failure.
+This two-object characterization provides a foundation for instantiating DLN in
+domains beyond decision-making, including settings where representational
+constraints determine what information an agent can extract from its
+environment.
 
 \begin{thebibliography}{99}
 
