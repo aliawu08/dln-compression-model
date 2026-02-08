@@ -721,6 +721,7 @@ class NetworkCycle(Agent):
         return self.cost.total(self.cost_w)
 
 
+@dataclass(frozen=True)
 class RunSpec:
     preset: Literal["smoke", "paper", "boundary-kf", "stakes-sweep"]
     seeds: int
