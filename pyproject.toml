@@ -1,0 +1,16 @@
+[project]
+name = "dln-compression-model"
+version = "0.1.0"
+description = "DLN computational framework simulations."
+license = "MIT AND CC-BY-4.0"
+requires-python = ">=3.8"
+dependencies = [
+  "numpy",
+  "pandas",
+  "matplotlib",
+  "pyyaml",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

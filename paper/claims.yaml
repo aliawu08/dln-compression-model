@@ -1,0 +1,291 @@
+# Paper Claims Verification
+# Each claim links to a specific result in agg_summary.csv
+# tolerance: allowed deviation from expected value (absolute)
+# direction: "gt" (greater than), "lt" (less than), "eq" (equal within tolerance)
+
+claims:
+  # ==========================================================================
+  # CLAIM 1: Core Compression (Network beats Linear at large K, structured)
+  # Paper states: "Network-Full achieves CAU 80.47 vs Linear 64.62"
+  # ==========================================================================
+  core_compression_network_cau:
+    description: "Network-Full CAU at K=200, structured, stakes=0"
+    metric: cau_mean
+    filters:
+      agent: Network-Full
+      structure: structured
+      stakes: 0.0
+      K: 200
+    expected: 80.47
+    tolerance: 2.0
+
+  core_compression_linear_cau:
+    description: "Linear CAU at K=200, structured, stakes=0"
+    metric: cau_mean
+    filters:
+      agent: Linear
+      structure: structured
+      stakes: 0.0
+      K: 200
+    expected: 64.62
+    tolerance: 2.0
+
+  core_compression_advantage:
+    description: "Network CAU > Linear CAU at K=200"
+    type: comparison
+    metric: cau_mean
+    agent_a: Network-Full
+    agent_b: Linear
+    filters:
+      structure: structured
+      stakes: 0.0
+      K: 200
+    direction: gt
+    min_difference: 13.0  # Δ should be at least 13 (actual ≈ 15.85)
+
+  # ==========================================================================
+  # CLAIM 2: Variable Compression (Network survives stakes, Linear collapses)
+  # Paper states: "utility 69.50 for Network vs -706.90 for Linear"
+  # ==========================================================================
+  variable_compression_network_utility:
+    description: "Network-Full utility at K=200, structured, stakes=1"
+    metric: utility_mean
+    filters:
+      agent: Network-Full
+      structure: structured
+      stakes: 1.0
+      K: 200
+    expected: 69.50
+    tolerance: 3.0
+
+  variable_compression_linear_utility:
+    description: "Linear utility at K=200, structured, stakes=1"
+    metric: utility_mean
+    filters:
+      agent: Linear
+      structure: structured
+      stakes: 1.0
+      K: 200
+    expected: -706.90
+    tolerance: 100.0  # Higher tolerance due to high variance
+
+  linear_collapses_with_stakes:
+    description: "Linear utility should be deeply negative with stakes"
+    metric: utility_mean
+    filters:
+      agent: Linear
+      structure: structured
+      stakes: 1.0
+      K: 200
+    direction: lt
+    threshold: -700.0
+
+  network_survives_with_stakes:
+    description: "Network utility should remain positive with stakes"
+    metric: utility_mean
+    filters:
+      agent: Network-Full
+      structure: structured
+      stakes: 1.0
+      K: 200
+    direction: gt
+    threshold: 0.0
+
+  # ==========================================================================
+  # CLAIM 3: Cognitive Cost Scaling (Linear O(K), Network O(F)≈constant)
+  # ==========================================================================
+  linear_cost_scales_with_K:
+    description: "Linear cognitive cost at K=200 should be ~10x cost at K=20"
+    type: ratio
+    metric: cog_mean
+    filters:
+      agent: Linear
+      structure: structured
+      stakes: 0.0
+    K_numerator: 200
+    K_denominator: 20
+    expected_ratio: 8.0  # 19.15 / 2.27 ≈ 8.4
+    tolerance_ratio: 2.0
+
+  network_cost_constant:
+    description: "Network cognitive cost should be roughly constant across K"
+    type: ratio
+    metric: cog_mean
+    filters:
+      agent: Network-Full
+      structure: structured
+      stakes: 0.0
+    K_numerator: 200
+    K_denominator: 20
+    expected_ratio: 1.0  # 1.75 / 1.68 ≈ 1.04
+    tolerance_ratio: 0.3
+
+  # ==========================================================================
+  # CLAIM 4: Advantage grows with K (but only emerges at K≥100)
+  # IMPORTANT: At K=20,50 Linear actually beats Network!
+  # ==========================================================================
+  advantage_at_K20:
+    description: "At K=20, advantage is small or negative (Linear may win)"
+    type: comparison
+    metric: cau_mean
+    agent_a: Network-Full
+    agent_b: Linear
+    filters:
+      structure: structured
+      stakes: 0.0
+      K: 20
+    direction: gt
+    min_difference: -10.0  # Allow Linear to win by up to 10
+
+  advantage_at_K200:
+    description: "At K=200, Network advantage should be substantial"
+    type: comparison
+    metric: cau_mean
+    agent_a: Network-Full
+    agent_b: Linear
+    filters:
+      structure: structured
+      stakes: 0.0
+      K: 200
+    direction: gt
+    min_difference: 15.0
+
+  # ==========================================================================
+  # CLAIM 5: No advantage in unstructured (Network should be WORSE)
+  # ==========================================================================
+  no_advantage_unstructured_K200:
+    description: "In unstructured, Linear should beat Network"
+    type: comparison
+    metric: cau_mean
+    agent_a: Linear
+    agent_b: Network-Full
+    filters:
+      structure: unstructured
+      stakes: 0.0
+      K: 200
+    direction: gt
+    min_difference: 50.0  # Linear should win by a lot
+
+  # ==========================================================================
+  # CLAIM 6: Learning Cycle (expansions in unstructured, not in structured)
+  # ==========================================================================
+  no_expansions_structured:
+    description: "No hypothesis expansions when prior is correct"
+    metric: expansions_mean
+    filters:
+      agent: Network-Full
+      structure: structured
+      stakes: 0.0
+      K: 200
+    expected: 0.0
+    tolerance: 0.05
+
+  expansions_in_unstructured:
+    description: "Expansions should occur when structure doesn't match prior"
+    metric: expansions_mean
+    filters:
+      agent: Network-Full
+      structure: unstructured
+      stakes: 0.0
+      K: 200
+    direction: gt
+    threshold: 0.1
+
+  # ==========================================================================
+  # CLAIM 7: Dual-purpose actions (exist with stakes, not without)
+  # ==========================================================================
+  no_dual_purpose_without_stakes:
+    description: "No dual-purpose picks when stakes=0"
+    metric: dual_mean
+    filters:
+      agent: Network-Full
+      structure: structured
+      stakes: 0.0
+      K: 20
+    expected: 0.0
+    tolerance: 0.01
+
+  dual_purpose_with_stakes:
+    description: "Dual-purpose picks should exist when stakes>0"
+    metric: dual_mean
+    filters:
+      agent: Network-Full
+      structure: structured
+      stakes: 1.0
+      K: 20
+    direction: gt
+    threshold: 10.0
+
+  # ==========================================================================
+  # CLAIM 8: Thompson-Factor baseline (Bayesian factor-level agent)
+  # Thompson beats Network at stakes=0 (better exploration), but collapses
+  # under stakes (no exposure tracking)
+  # ==========================================================================
+  thompson_beats_network_no_stakes:
+    description: "Thompson-Factor CAU > Network-Full CAU at K=200, structured, stakes=0"
+    type: comparison
+    metric: cau_mean
+    agent_a: Thompson-Factor
+    agent_b: Network-Full
+    filters:
+      structure: structured
+      stakes: 0.0
+      K: 200
+    direction: gt
+    min_difference: 10.0
+
+  thompson_beats_linear_structured:
+    description: "Thompson-Factor CAU > Linear CAU at K=200, structured, stakes=0"
+    type: comparison
+    metric: cau_mean
+    agent_a: Thompson-Factor
+    agent_b: Linear
+    filters:
+      structure: structured
+      stakes: 0.0
+      K: 200
+    direction: gt
+    min_difference: 30.0
+
+  network_beats_thompson_with_stakes:
+    description: "Network-Full CAU >> Thompson-Factor CAU at K=200, structured, stakes=1"
+    type: comparison
+    metric: cau_mean
+    agent_a: Network-Full
+    agent_b: Thompson-Factor
+    filters:
+      structure: structured
+      stakes: 1.0
+      K: 200
+    direction: gt
+    min_difference: 3000.0  # Network +67.7 vs Thompson -3222
+
+  thompson_collapses_with_stakes:
+    description: "Thompson-Factor utility deeply negative with stakes"
+    metric: utility_mean
+    filters:
+      agent: Thompson-Factor
+      structure: structured
+      stakes: 1.0
+      K: 200
+    direction: lt
+    threshold: -2000.0
+
+  thompson_no_expansion:
+    description: "Thompson-Factor never expands (no learning cycle)"
+    metric: expansions_mean
+    filters:
+      agent: Thompson-Factor
+      structure: structured
+      stakes: 0.0
+      K: 200
+    expected: 0.0
+    tolerance: 0.01
+
+# ==========================================================================
+# STATISTICAL REQUIREMENTS
+# ==========================================================================
+statistical_requirements:
+  min_seeds: 50
+  max_coefficient_of_variation: 0.5  # std/mean for key claims
+  min_effect_size: 0.5  # Cohen's d for comparisons
